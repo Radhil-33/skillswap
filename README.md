@@ -59,15 +59,18 @@ npm start
 
 The app will open at `http://localhost:3000`.
 
-## Hosting (Render)
+## Hosting (Vercel + Render)
 
-This repo is ready for one-service hosting (Express serves the built React app).
+Recommended production setup:
+
+- Frontend: Vercel (from `client/`)
+- Backend API + Socket.io: Render (from repo root using `render.yaml`)
 
 ### 1. Push to GitHub
 
 The project is already in: `https://github.com/Radhil-33/skillswap`
 
-### 2. Create a Render Web Service
+### 2. Deploy Backend on Render
 
 1. In Render, click **New +** -> **Web Service**.
 2. Connect repo: `Radhil-33/skillswap`.
@@ -75,15 +78,27 @@ The project is already in: `https://github.com/Radhil-33/skillswap`
 4. Set required environment variables:
 	- `MONGODB_URI` = your MongoDB Atlas connection string
 	- `JWT_SECRET` = long random secret
-	- `CLIENT_URL` = your Render app URL (for example `https://skillswap.onrender.com`)
+	- `CLIENT_URL` = your Vercel frontend URL (for example `https://skillswap.vercel.app`)
 5. Deploy.
 
-### 3. Notes
+### 3. Deploy Frontend on Vercel
 
-- Backend API is served under `/api`.
-- Frontend is served from `client/build` by Express.
-- Socket.io uses same-origin in production automatically.
-- Avatar uploads are served from `/uploads`.
+1. In Vercel, click **Add New...** -> **Project**.
+2. Import repo: `Radhil-33/skillswap`.
+3. Set **Root Directory** to `client`.
+4. Framework preset: **Create React App** (auto).
+5. Add environment variables:
+   - `REACT_APP_API_URL` = `https://<your-render-service>.onrender.com/api`
+   - `REACT_APP_SOCKET_URL` = `https://<your-render-service>.onrender.com`
+   - `REACT_APP_API_ORIGIN` = `https://<your-render-service>.onrender.com`
+6. Deploy.
+
+### 4. Notes
+
+- Render service in this setup is backend-only.
+- API endpoints stay under `/api`.
+- Socket.io connects to your Render URL using `REACT_APP_SOCKET_URL`.
+- Avatar uploads are served from `/uploads` on Render.
 
 ## Project Structure
 
