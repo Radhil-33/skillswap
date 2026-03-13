@@ -1,4 +1,11 @@
-const API_URL = 'http://localhost:5000';
+const getApiOrigin = () => {
+  if (process.env.REACT_APP_API_ORIGIN) return process.env.REACT_APP_API_ORIGIN;
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    return 'http://localhost:5000';
+  }
+  if (typeof window !== 'undefined') return window.location.origin;
+  return '';
+};
 
 export default function Avatar({ src, name, size = 'md', className = '' }) {
   const sizes = {
@@ -12,7 +19,7 @@ export default function Avatar({ src, name, size = 'md', className = '' }) {
 
   const letter = name?.charAt(0)?.toUpperCase() || '?';
   const hasImage = src && src.length > 0;
-  const imgUrl = hasImage && src.startsWith('/') ? `${API_URL}${src}` : src;
+  const imgUrl = hasImage && src.startsWith('/') ? `${getApiOrigin()}${src}` : src;
 
   return hasImage ? (
     <img

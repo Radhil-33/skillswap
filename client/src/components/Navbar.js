@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ArrowLeftRight, MessageCircle, Calendar, User, LogOut, Search, Star } from 'lucide-react';
+import { ArrowLeftRight, MessageCircle, Calendar, LogOut, Search, Star } from 'lucide-react';
 import Avatar from './Avatar';
 
 export default function Navbar() {

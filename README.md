@@ -59,6 +59,32 @@ npm start
 
 The app will open at `http://localhost:3000`.
 
+## Hosting (Render)
+
+This repo is ready for one-service hosting (Express serves the built React app).
+
+### 1. Push to GitHub
+
+The project is already in: `https://github.com/Radhil-33/skillswap`
+
+### 2. Create a Render Web Service
+
+1. In Render, click **New +** -> **Web Service**.
+2. Connect repo: `Radhil-33/skillswap`.
+3. Render auto-detects `render.yaml` from the repo.
+4. Set required environment variables:
+	- `MONGODB_URI` = your MongoDB Atlas connection string
+	- `JWT_SECRET` = long random secret
+	- `CLIENT_URL` = your Render app URL (for example `https://skillswap.onrender.com`)
+5. Deploy.
+
+### 3. Notes
+
+- Backend API is served under `/api`.
+- Frontend is served from `client/build` by Express.
+- Socket.io uses same-origin in production automatically.
+- Avatar uploads are served from `/uploads`.
+
 ## Project Structure
 
 ```

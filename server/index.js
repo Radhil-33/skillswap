@@ -12,18 +12,21 @@ const User = require('./models/User');
 
 const app = express();
 const server = http.createServer(app);
+const clientBuildPath = path.join(__dirname, '..', 'client', 'build');
+const corsOrigin = process.env.CLIENT_URL || true;
 
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL,
+    origin: corsOrigin,
     methods: ['GET', 'POST'],
   },
 });
 
 // Middleware
-app.use(cors({ origin: process.env.CLIENT_URL }));
+app.use(cors({ origin: corsOrigin }));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(express.static(clientBuildPath));
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
@@ -33,6 +36,11 @@ app.use('/api/chat', require('./routes/chat'));
 app.use('/api/sessions', require('./routes/sessions'));
 app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/upload', require('./routes/upload'));
+
+// SPA fallback for hosted frontend
+app.get(/^\/(?!api|uploads).*/, (req, res) => {
+  res.sendFile(path.join(clientBuildPath, 'index.html'));
+});
 
 app.get('/', (req, res) => {
   res.json({ message: 'SkillSwap API is running' });

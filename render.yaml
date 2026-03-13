@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: skillswap
+    env: node
+    plan: free
+    buildCommand: |
+      npm install --prefix server
+      npm install --prefix client
+      npm run build --prefix client
+    startCommand: npm start --prefix server
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CLIENT_URL
+        sync: false
