@@ -4,8 +4,28 @@ import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff } from 'lucide-react';
 
 const ICE_SERVERS = {
   iceServers: [
+    // STUN servers for NAT traversal
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+    // Free TURN servers for restrictive NAT/firewall
+    {
+      urls: ['turn:numb.viagenie.ca'],
+      username: 'webrtc@example.com',
+      credential: 'webrtc',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
   ],
 };
 
@@ -103,7 +123,23 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
       const constraints = mode === 'audio'
         ? { video: false, audio: true }
         : { video: true, audio: true };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (mediaErr) {
+        console.error('Media access error:', mediaErr);
+        if (mediaErr.name === 'NotAllowedError') {
+          alert('Please allow access to ' + (mode === 'audio' ? 'microphone' : 'camera & microphone') + ' to start a call');
+        } else if (mediaErr.name === 'NotFoundError') {
+          alert('No ' + (mode === 'audio' ? 'microphone' : 'camera') + ' found on your device');
+        } else {
+          alert('Error accessing media devices: ' + mediaErr.message);
+        }
+        cleanup();
+        return;
+      }
+
       localStream.current = stream;
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
@@ -117,6 +153,7 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
       socket.emit('call-user', { targetUserId, offer, callType: mode });
     } catch (err) {
       console.error('Failed to start call:', err);
+      alert('Failed to start call: ' + err.message);
       cleanup();
     }
   };
@@ -131,7 +168,23 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
       const constraints = isAudio
         ? { video: false, audio: true }
         : { video: true, audio: true };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (mediaErr) {
+        console.error('Media access error:', mediaErr);
+        if (mediaErr.name === 'NotAllowedError') {
+          alert('Please allow access to ' + (isAudio ? 'microphone' : 'camera & microphone') + ' to accept the call');
+        } else if (mediaErr.name === 'NotFoundError') {
+          alert('No ' + (isAudio ? 'microphone' : 'camera') + ' found on your device');
+        } else {
+          alert('Error accessing media devices: ' + mediaErr.message);
+        }
+        rejectCall();
+        return;
+      }
+
       localStream.current = stream;
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
@@ -157,6 +210,7 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
       socket.emit('call-accepted', { callerId: callTarget.current, answer });
     } catch (err) {
       console.error('Failed to accept call:', err);
+      alert('Failed to accept call: ' + err.message);
       cleanup();
     }
   };
