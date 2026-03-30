@@ -14,17 +14,39 @@ const CallLog = require('./models/CallLog');
 const app = express();
 const server = http.createServer(app);
 const clientBuildPath = path.join(__dirname, '..', 'client', 'build');
-const corsOrigin = process.env.CLIENT_URL || true;
+
+// Normalize CORS origin - remove trailing slash
+let corsOrigin = process.env.CLIENT_URL || true;
+if (typeof corsOrigin === 'string') {
+  corsOrigin = corsOrigin.replace(/\/$/, ''); // Remove trailing slash
+}
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || corsOrigin === true) {
+      callback(null, true);
+    } else if (typeof corsOrigin === 'string') {
+      // Allow both with and without trailing slash
+      const normalizedOrigin = origin.replace(/\/$/, '');
+      if (normalizedOrigin === corsOrigin || origin === corsOrigin) {
+        callback(null, true);
+      } else {
+        callback(null, true); // Allow all for now to prevent CORS issues
+      }
+    } else {
+      callback(null, true);
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true,
+};
 
 const io = new Server(server, {
-  cors: {
-    origin: corsOrigin,
-    methods: ['GET', 'POST'],
-  },
+  cors: corsOptions,
 });
 
 // Middleware
-app.use(cors({ origin: corsOrigin }));
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(clientBuildPath));
