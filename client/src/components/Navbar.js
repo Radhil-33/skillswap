@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ArrowLeftRight, MessageCircle, Calendar, LogOut, Search, Star } from 'lucide-react';
+import { ArrowLeftRight, MessageCircle, Calendar, LogOut, Search, Star, PhoneCall } from 'lucide-react';
 import Avatar from './Avatar';
 
 export default function Navbar() {
@@ -58,6 +58,13 @@ export default function Navbar() {
             >
               <Star className="h-5 w-5" />
               <span className="hidden sm:inline text-sm font-medium">Reviews</span>
+            </Link>
+            <Link
+              to="/call-logs"
+              className="flex items-center space-x-1 px-3 py-2 rounded-lg text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+            >
+              <PhoneCall className="h-5 w-5" />
+              <span className="hidden lg:inline text-sm font-medium">Calls</span>
             </Link>
             <Link
               to="/profile"

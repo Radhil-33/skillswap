@@ -45,6 +45,10 @@ export const cancelSession = (id) => API.put(`/sessions/${id}/cancel`);
 export const createReview = (data) => API.post('/reviews', data);
 export const getUserReviews = (userId) => API.get(`/reviews/user/${userId}`);
 
+// Call Logs
+export const getCallLogs = () => API.get('/call-logs');
+export const clearCallLogs = () => API.delete('/call-logs');
+
 // Upload
 export const uploadAvatar = (file) => {
   const formData = new FormData();

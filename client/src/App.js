@@ -12,6 +12,7 @@ import Swaps from './pages/Swaps';
 import Chat from './pages/Chat';
 import Sessions from './pages/Sessions';
 import Reviews from './pages/Reviews';
+import CallLogs from './pages/CallLogs';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -45,6 +46,7 @@ function AppRoutes() {
         <Route path="/chat" element={<PrivateRoute><Chat /></PrivateRoute>} />
         <Route path="/sessions" element={<PrivateRoute><Sessions /></PrivateRoute>} />
         <Route path="/reviews" element={<PrivateRoute><Reviews /></PrivateRoute>} />
+        <Route path="/call-logs" element={<PrivateRoute><CallLogs /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/dashboard" />} />
       </Routes>
     </>

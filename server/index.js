@@ -9,6 +9,7 @@ const path = require('path');
 const connectDB = require('./config/db');
 const { Conversation, Message } = require('./models/Chat');
 const User = require('./models/User');
+const CallLog = require('./models/CallLog');
 
 const app = express();
 const server = http.createServer(app);
@@ -36,6 +37,7 @@ app.use('/api/chat', require('./routes/chat'));
 app.use('/api/sessions', require('./routes/sessions'));
 app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/upload', require('./routes/upload'));
+app.use('/api/call-logs', require('./routes/callLogs'));
 
 // SPA fallback for hosted frontend
 app.get(/^\/(?!api|uploads).*/, (req, res) => {
@@ -48,6 +50,33 @@ app.get('/', (req, res) => {
 
 // Socket.io — real-time chat
 const onlineUsers = new Map();
+const activeCalls = new Map();
+
+async function saveCallLog(call, forcedStatus = null) {
+  try {
+    let endStatus = forcedStatus || 'completed';
+    if (!forcedStatus && call.status === 'initiated') endStatus = 'missed';
+
+    let duration = 0;
+    const endTime = new Date();
+    if (endStatus === 'completed') {
+      duration = Math.floor((endTime - call.startTime) / 1000);
+    }
+
+    const log = new CallLog({
+      caller: call.callerId,
+      callee: call.calleeId,
+      callType: call.callType,
+      status: endStatus,
+      startTime: call.startTime,
+      endTime,
+      duration,
+    });
+    await log.save();
+  } catch (err) {
+    console.error('Error saving call log:', err);
+  }
+}
 
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;
@@ -143,6 +172,16 @@ io.on('connection', (socket) => {
 
   // WebRTC signaling events
   socket.on('call-user', async ({ targetUserId, offer, callType }) => {
+    const callData = {
+      callerId: socket.userId,
+      calleeId: targetUserId,
+      callType: callType || 'video',
+      status: 'initiated',
+      startTime: new Date(),
+    };
+    activeCalls.set(socket.userId, callData);
+    activeCalls.set(targetUserId, callData);
+
     const targetSocketId = onlineUsers.get(targetUserId);
     if (targetSocketId) {
       let callerName = '';
@@ -162,13 +201,26 @@ io.on('connection', (socket) => {
   });
 
   socket.on('call-accepted', ({ callerId, answer }) => {
+    const call = activeCalls.get(callerId);
+    if (call && call.status === 'initiated') {
+      call.status = 'ongoing';
+      call.startTime = new Date(); // Reset time to actual connection
+    }
+
     const callerSocketId = onlineUsers.get(callerId);
     if (callerSocketId) {
       io.to(callerSocketId).emit('call-accepted', { answer });
     }
   });
 
-  socket.on('call-rejected', ({ callerId }) => {
+  socket.on('call-rejected', async ({ callerId }) => {
+    const call = activeCalls.get(callerId);
+    if (call && call.status === 'initiated') {
+      await saveCallLog(call, 'rejected');
+      activeCalls.delete(call.callerId);
+      activeCalls.delete(call.calleeId);
+    }
+
     const callerSocketId = onlineUsers.get(callerId);
     if (callerSocketId) {
       io.to(callerSocketId).emit('call-rejected');
@@ -182,15 +234,29 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('end-call', ({ targetUserId }) => {
+  socket.on('end-call', async ({ targetUserId }) => {
+    const call = activeCalls.get(socket.userId);
+    if (call) {
+      await saveCallLog(call); // handles 'missed' or 'completed' based on 'initiated' or 'ongoing'
+      activeCalls.delete(call.callerId);
+      activeCalls.delete(call.calleeId);
+    }
+
     const targetSocketId = onlineUsers.get(targetUserId);
     if (targetSocketId) {
       io.to(targetSocketId).emit('call-ended');
     }
   });
 
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
     console.log('User disconnected:', socket.userId);
+    const call = activeCalls.get(socket.userId);
+    if (call) {
+      await saveCallLog(call);
+      activeCalls.delete(call.callerId);
+      activeCalls.delete(call.calleeId);
+    }
+    
     onlineUsers.delete(socket.userId);
     io.emit('user-offline', socket.userId);
   });
