@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSocket } from '../context/SocketContext';
-import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff, Share2, PenTool } from 'lucide-react';
+import Whiteboard from './Whiteboard';
 
 const ICE_SERVERS = {
   iceServers: [
@@ -34,6 +35,8 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
   const [callState, setCallState] = useState('idle');
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [showWhiteboard, setShowWhiteboard] = useState(false);
   const [callerName, setCallerName] = useState('');
   const [callType, setCallType] = useState(mode); // 'video' or 'audio'
 
@@ -41,6 +44,7 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
   const remoteVideoRef = useRef(null);
   const peerConnection = useRef(null);
   const localStream = useRef(null);
+  const screenStream = useRef(null);
   const pendingCandidates = useRef([]);
   const incomingOffer = useRef(null);
   const callTarget = useRef(null);
@@ -58,6 +62,10 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
       localStream.current.getTracks().forEach((t) => t.stop());
       localStream.current = null;
     }
+    if (screenStream.current) {
+      screenStream.current.getTracks().forEach((t) => t.stop());
+      screenStream.current = null;
+    }
     if (peerConnection.current) {
       peerConnection.current.close();
       peerConnection.current = null;
@@ -69,6 +77,8 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
     setIsMuted(false);
     setIsCameraOff(false);
+    setIsScreenSharing(false);
+    setShowWhiteboard(false);
     setCallerName('');
     setCallType(mode);
     callTypeRef.current = mode;
@@ -249,6 +259,81 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
     }
   };
 
+  const toggleScreenShare = async () => {
+    if (!peerConnection.current) return;
+
+    try {
+      if (isScreenSharing) {
+        // Stop screen sharing, switch back to camera
+        if (screenStream.current) {
+          screenStream.current.getTracks().forEach((track) => track.stop());
+          screenStream.current = null;
+        }
+
+        // Get camera stream again
+        if (localStream.current) {
+          const videoTrack = localStream.current.getVideoTracks()[0];
+          if (videoTrack) {
+            const sender = peerConnection.current
+              .getSenders()
+              .find((s) => s.track?.kind === 'video');
+            if (sender) {
+              await sender.replaceTrack(videoTrack);
+            }
+            if (localVideoRef.current) {
+              localVideoRef.current.srcObject = localStream.current;
+            }
+          }
+        }
+        setIsScreenSharing(false);
+      } else {
+        // Start screen sharing
+        const displayStream = await navigator.mediaDevices.getDisplayMedia({
+          video: { cursor: 'always' },
+          audio: false,
+        });
+
+        screenStream.current = displayStream;
+        const screenTrack = displayStream.getVideoTracks()[0];
+
+        // Replace video track in peer connection
+        const sender = peerConnection.current
+          .getSenders()
+          .find((s) => s.track?.kind === 'video');
+        if (sender) {
+          await sender.replaceTrack(screenTrack);
+        }
+
+        // Show screen in local video element
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = displayStream;
+        }
+
+        // Handle screen share stop
+        screenTrack.onended = async () => {
+          if (localStream.current) {
+            const videoTrack = localStream.current.getVideoTracks()[0];
+            if (videoTrack && sender) {
+              await sender.replaceTrack(videoTrack);
+              if (localVideoRef.current) {
+                localVideoRef.current.srcObject = localStream.current;
+              }
+            }
+          }
+          screenStream.current = null;
+          setIsScreenSharing(false);
+        };
+
+        setIsScreenSharing(true);
+      }
+    } catch (err) {
+      console.error('Screen share error:', err);
+      if (err.name !== 'NotAllowedError') {
+        alert('Screen sharing not available: ' + err.message);
+      }
+    }
+  };
+
   // Socket listeners — registered once, use refs to avoid stale closures
   useEffect(() => {
     if (!socket) return;
@@ -374,7 +459,10 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
 
         <div className={`fixed inset-0 z-50 flex flex-col ${isAudioCall ? 'bg-gradient-to-b from-gray-800 to-gray-900' : 'bg-black'}`}>
           <div className="flex-1 relative">
-            {isAudioCall ? (
+            {showWhiteboard && !isAudioCall ? (
+              /* Whiteboard view */
+              <Whiteboard socket={socket} userId={callTarget.current || targetUserId} />
+            ) : isAudioCall ? (
               /* Audio call UI - avatar centered */
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
@@ -414,8 +502,13 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
                   autoPlay
                   playsInline
                   muted
-                  className="absolute bottom-4 right-4 w-40 h-30 rounded-xl object-cover border-2 border-white/30"
+                  className={`absolute bottom-4 right-4 ${isScreenSharing ? 'w-32 h-24' : 'w-40 h-30'} rounded-xl object-cover border-2 border-white/30`}
                 />
+                {isScreenSharing && (
+                  <div className="absolute top-4 right-4 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+                    Screen Sharing
+                  </div>
+                )}
               </>
             )}
             {/* Hidden audio element for audio calls to play remote stream */}
@@ -432,12 +525,28 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
               {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
             </button>
             {!isAudioCall && (
-              <button
-                onClick={toggleCamera}
-                className={`p-4 rounded-full transition ${isCameraOff ? 'bg-red-500 text-white' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
-              >
-                {isCameraOff ? <VideoOff className="h-6 w-6" /> : <Video className="h-6 w-6" />}
-              </button>
+              <>
+                <button
+                  onClick={toggleCamera}
+                  className={`p-4 rounded-full transition ${isCameraOff ? 'bg-red-500 text-white' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
+                >
+                  {isCameraOff ? <VideoOff className="h-6 w-6" /> : <Video className="h-6 w-6" />}
+                </button>
+                <button
+                  onClick={toggleScreenShare}
+                  className={`p-4 rounded-full transition ${isScreenSharing ? 'bg-blue-600 text-white' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
+                  title={isScreenSharing ? 'Stop sharing screen' : 'Share screen'}
+                >
+                  <Share2 className="h-6 w-6" />
+                </button>
+                <button
+                  onClick={() => setShowWhiteboard(!showWhiteboard)}
+                  className={`p-4 rounded-full transition ${showWhiteboard ? 'bg-purple-600 text-white' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
+                  title={showWhiteboard ? 'Hide whiteboard' : 'Show whiteboard'}
+                >
+                  <PenTool className="h-6 w-6" />
+                </button>
+              </>
             )}
             <button
               onClick={endCall}

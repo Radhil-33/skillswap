@@ -270,6 +270,40 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Whiteboard events
+  socket.on('whiteboard-draw', ({ x0, y0, x1, y1, lineWidth, tool, color }) => {
+    const call = activeCalls.get(socket.userId);
+    if (!call) return;
+
+    // Determine the other user in the call
+    const otherUserId = call.callerId === socket.userId ? call.calleeId : call.callerId;
+    const otherSocketId = onlineUsers.get(otherUserId);
+
+    if (otherSocketId) {
+      io.to(otherSocketId).emit('whiteboard-draw', {
+        x0,
+        y0,
+        x1,
+        y1,
+        lineWidth,
+        tool,
+        color,
+      });
+    }
+  });
+
+  socket.on('whiteboard-clear', () => {
+    const call = activeCalls.get(socket.userId);
+    if (!call) return;
+
+    const otherUserId = call.callerId === socket.userId ? call.calleeId : call.callerId;
+    const otherSocketId = onlineUsers.get(otherUserId);
+
+    if (otherSocketId) {
+      io.to(otherSocketId).emit('whiteboard-clear');
+    }
+  });
+
   socket.on('disconnect', async () => {
     console.log('User disconnected:', socket.userId);
     const call = activeCalls.get(socket.userId);
