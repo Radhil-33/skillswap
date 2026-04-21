@@ -86,6 +86,7 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
     setCallState('idle');
   }, [mode]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const createPeer = useCallback(() => {
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
