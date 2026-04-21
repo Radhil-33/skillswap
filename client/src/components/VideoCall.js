@@ -140,10 +140,15 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
   const startCall = async () => {
     if (!socket || !targetUserId) return;
     try {
+      // Check socket is connected before proceeding
+      if (!socket.connected) {
+        alert('Not connected to server. Please refresh and try again.');
+        return;
+      }
+
       callTarget.current = targetUserId;
       callTypeRef.current = mode;
       setCallType(mode);
-      updateCallState('calling');
 
       const constraints = mode === 'audio'
         ? { video: false, audio: true }
@@ -175,6 +180,8 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
+      // Update state after successfully creating offer
+      updateCallState('calling');
       socket.emit('call-user', { targetUserId, offer, callType: mode });
     } catch (err) {
       console.error('Failed to start call:', err);
@@ -187,7 +194,12 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
     const offer = incomingOffer.current;
     if (!offer || !socket) return;
     try {
-      updateCallState('connected');
+      // Check socket is connected before proceeding
+      if (!socket.connected) {
+        alert('Not connected to server. Please try again.');
+        cleanup();
+        return;
+      }
 
       const isAudio = callTypeRef.current === 'audio';
       const constraints = isAudio
@@ -232,6 +244,7 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
+      updateCallState('connected');
       socket.emit('call-accepted', { callerId: callTarget.current, answer });
     } catch (err) {
       console.error('Failed to accept call:', err);
@@ -609,7 +622,7 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
             )}
           </div>
 
-          <div className="bg-gray-900/90 p-6 flex items-center justify-center gap-4">
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900/90 p-6 flex items-center justify-center gap-4">
             <button
               onClick={toggleMute}
               className={`p-4 rounded-full transition ${isMuted ? 'bg-red-500 text-white' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
