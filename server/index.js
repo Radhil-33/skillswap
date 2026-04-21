@@ -115,8 +115,10 @@ io.use((socket, next) => {
 });
 
 io.on('connection', (socket) => {
-  console.log('User connected:', socket.userId);
+  console.log('User connected:', socket.userId, 'Socket ID:', socket.id);
   onlineUsers.set(socket.userId, socket.id);
+  socket.callPartner = null; // Track who this socket is calling with
+  console.log('Online users now:', Array.from(onlineUsers.entries()));
 
   // Notify others this user is online
   io.emit('user-online', socket.userId);
@@ -194,6 +196,15 @@ io.on('connection', (socket) => {
 
   // WebRTC signaling events
   socket.on('call-user', async ({ targetUserId, offer, callType }) => {
+    console.log('Call attempt - From:', socket.userId, 'To:', targetUserId);
+    console.log('Online users:', Array.from(onlineUsers.keys()));
+    
+    if (!targetUserId) {
+      console.log('ERROR: targetUserId is undefined');
+      socket.emit('call-failed', { reason: 'Invalid target user' });
+      return;
+    }
+
     const callData = {
       callerId: socket.userId,
       calleeId: targetUserId,
@@ -205,6 +216,8 @@ io.on('connection', (socket) => {
     activeCalls.set(targetUserId, callData);
 
     const targetSocketId = onlineUsers.get(targetUserId);
+    console.log('Target socket ID:', targetSocketId);
+    
     if (targetSocketId) {
       let callerName = '';
       try {
@@ -218,6 +231,7 @@ io.on('connection', (socket) => {
         offer,
       });
     } else {
+      console.log('ERROR: Target user not online');
       socket.emit('call-failed', { reason: 'User is offline' });
     }
   });
@@ -229,7 +243,15 @@ io.on('connection', (socket) => {
       call.startTime = new Date(); // Reset time to actual connection
     }
 
+    // Set call partners for both users
     const callerSocketId = onlineUsers.get(callerId);
+    const callerSocket = io.sockets.sockets.get(callerSocketId);
+    if (callerSocket) {
+      callerSocket.callPartner = socket.userId;  // Caller's partner is the answerer
+    }
+    socket.callPartner = callerId;  // Answerer's partner is the caller
+    console.log('Call partners set:', callerId, '<->', socket.userId);
+
     if (callerSocketId) {
       io.to(callerSocketId).emit('call-accepted', { answer });
     }
@@ -272,13 +294,11 @@ io.on('connection', (socket) => {
 
   // Whiteboard events
   socket.on('whiteboard-draw', ({ x0, y0, x1, y1, lineWidth, tool, color }) => {
-    const call = activeCalls.get(socket.userId);
-    if (!call) return;
-
-    // Determine the other user in the call
-    const otherUserId = call.callerId === socket.userId ? call.calleeId : call.callerId;
-    const otherSocketId = onlineUsers.get(otherUserId);
-
+    if (!socket.callPartner) {
+      console.log('Whiteboard-draw: No call partner for', socket.userId);
+      return;
+    }
+    const otherSocketId = onlineUsers.get(socket.callPartner);
     if (otherSocketId) {
       io.to(otherSocketId).emit('whiteboard-draw', {
         x0,
@@ -293,12 +313,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on('whiteboard-clear', () => {
-    const call = activeCalls.get(socket.userId);
-    if (!call) return;
-
-    const otherUserId = call.callerId === socket.userId ? call.calleeId : call.callerId;
-    const otherSocketId = onlineUsers.get(otherUserId);
-
+    if (!socket.callPartner) {
+      console.log('Whiteboard-clear: No call partner for', socket.userId);
+      return;
+    }
+    const otherSocketId = onlineUsers.get(socket.callPartner);
     if (otherSocketId) {
       io.to(otherSocketId).emit('whiteboard-clear');
     }
@@ -306,6 +325,9 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', async () => {
     console.log('User disconnected:', socket.userId);
+    onlineUsers.delete(socket.userId);
+    socket.callPartner = null;
+    console.log('Online users after disconnect:', Array.from(onlineUsers.keys()));
     const call = activeCalls.get(socket.userId);
     if (call) {
       await saveCallLog(call);
