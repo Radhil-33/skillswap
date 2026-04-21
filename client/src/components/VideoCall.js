@@ -108,7 +108,21 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
       const state = pc.iceConnectionState;
       console.log('ICE state:', state);
       if (state === 'disconnected' || state === 'failed' || state === 'closed') {
-        cleanup();
+        // Automatically cleanup on connection failure
+        if (localStream.current) {
+          localStream.current.getTracks().forEach((t) => t.stop());
+          localStream.current = null;
+        }
+        if (screenStream.current) {
+          screenStream.current.getTracks().forEach((t) => t.stop());
+          screenStream.current = null;
+        }
+        if (peerConnection.current) {
+          peerConnection.current.close();
+          peerConnection.current = null;
+        }
+        callStateRef.current = 'idle';
+        setCallState('idle');
       }
     };
 
@@ -120,7 +134,7 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
     };
 
     return pc;
-  }, [socket, cleanup, updateCallState]);
+  }, [socket, updateCallState]);
 
   const startCall = async () => {
     if (!socket || !targetUserId) return;
@@ -367,15 +381,92 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
         setCallState('connected');
       } catch (err) {
         console.error('Error handling call accepted:', err);
-        cleanup();
       }
     };
 
-    const handleCallRejected = () => cleanup();
-    const handleCallEnded = () => cleanup();
+    const handleCallRejected = () => {
+      if (localStream.current) {
+        localStream.current.getTracks().forEach((t) => t.stop());
+        localStream.current = null;
+      }
+      if (screenStream.current) {
+        screenStream.current.getTracks().forEach((t) => t.stop());
+        screenStream.current = null;
+      }
+      if (peerConnection.current) {
+        peerConnection.current.close();
+        peerConnection.current = null;
+      }
+      pendingCandidates.current = [];
+      incomingOffer.current = null;
+      callTarget.current = null;
+      if (localVideoRef.current) localVideoRef.current.srcObject = null;
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+      setIsMuted(false);
+      setIsCameraOff(false);
+      setIsScreenSharing(false);
+      setShowWhiteboard(false);
+      setCallerName('');
+      setCallType(mode);
+      callStateRef.current = 'idle';
+      setCallState('idle');
+    };
+
+    const handleCallEnded = () => {
+      if (localStream.current) {
+        localStream.current.getTracks().forEach((t) => t.stop());
+        localStream.current = null;
+      }
+      if (screenStream.current) {
+        screenStream.current.getTracks().forEach((t) => t.stop());
+        screenStream.current = null;
+      }
+      if (peerConnection.current) {
+        peerConnection.current.close();
+        peerConnection.current = null;
+      }
+      pendingCandidates.current = [];
+      incomingOffer.current = null;
+      callTarget.current = null;
+      if (localVideoRef.current) localVideoRef.current.srcObject = null;
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+      setIsMuted(false);
+      setIsCameraOff(false);
+      setIsScreenSharing(false);
+      setShowWhiteboard(false);
+      setCallerName('');
+      setCallType(mode);
+      callStateRef.current = 'idle';
+      setCallState('idle');
+    };
+
     const handleCallFailed = ({ reason }) => {
       console.warn('Call failed:', reason);
-      cleanup();
+      if (localStream.current) {
+        localStream.current.getTracks().forEach((t) => t.stop());
+        localStream.current = null;
+      }
+      if (screenStream.current) {
+        screenStream.current.getTracks().forEach((t) => t.stop());
+        screenStream.current = null;
+      }
+      if (peerConnection.current) {
+        peerConnection.current.close();
+        peerConnection.current = null;
+      }
+      pendingCandidates.current = [];
+      incomingOffer.current = null;
+      callTarget.current = null;
+      if (localVideoRef.current) localVideoRef.current.srcObject = null;
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+      setIsMuted(false);
+      setIsCameraOff(false);
+      setIsScreenSharing(false);
+      setShowWhiteboard(false);
+      setCallerName('');
+      setCallType(mode);
+      callStateRef.current = 'idle';
+      setCallState('idle');
     };
 
     const handleIceCandidate = async ({ candidate }) => {
@@ -383,7 +474,7 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
         const pc = peerConnection.current;
         if (pc && pc.remoteDescription) {
           await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } else {
+        } else if (pc) {
           pendingCandidates.current.push(candidate);
         }
       } catch (err) {
@@ -406,7 +497,7 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
       socket.off('call-ended', handleCallEnded);
       socket.off('call-failed', handleCallFailed);
     };
-  }, [socket, cleanup]);
+  }, [socket, mode]);
 
   const isAudioCall = callType === 'audio';
 
