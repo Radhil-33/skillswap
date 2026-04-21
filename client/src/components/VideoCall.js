@@ -100,8 +100,12 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
     };
 
     pc.ontrack = (event) => {
+      console.log('Remote track received:', event.track.kind);
       if (remoteVideoRef.current) {
+        console.log('Setting remote stream:', event.streams[0]);
         remoteVideoRef.current.srcObject = event.streams[0];
+      } else {
+        console.error('remoteVideoRef not available');
       }
     };
 
@@ -191,11 +195,16 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
   };
 
   const acceptCall = async () => {
+    console.log('Accepting call...');
     const offer = incomingOffer.current;
-    if (!offer || !socket) return;
+    if (!offer || !socket) {
+      console.error('ERROR: No offer or socket:', { hasOffer: !!offer, hasSocket: !!socket });
+      return;
+    }
     try {
       // Check socket is connected before proceeding
       if (!socket.connected) {
+        console.error('Socket not connected');
         alert('Not connected to server. Please try again.');
         cleanup();
         return;
@@ -380,9 +389,14 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
 
     const handleCallAccepted = async ({ answer }) => {
       try {
+        console.log('Call accepted - Setting remote description');
         const pc = peerConnection.current;
-        if (!pc) return;
+        if (!pc) {
+          console.error('ERROR: Peer connection not available');
+          return;
+        }
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        console.log('Remote description set successfully');
         for (const candidate of pendingCandidates.current) {
           try {
             await pc.addIceCandidate(new RTCIceCandidate(candidate));
@@ -393,6 +407,7 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
         pendingCandidates.current = [];
         callStateRef.current = 'connected';
         setCallState('connected');
+        console.log('Call state set to connected');
       } catch (err) {
         console.error('Error handling call accepted:', err);
       }
