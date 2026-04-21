@@ -66,9 +66,10 @@ export default function Whiteboard({ socket, userId }) {
   };
 
   const draw = (e) => {
-    if (!isDrawing) return;
+    if (!isDrawing || !contextRef.current) return;
 
     const canvas = canvasRef.current;
+    if (!canvas) return;
     const { offsetX, offsetY } = e.nativeEvent;
     const scaleX = canvas.width / canvas.offsetWidth;
     const scaleY = canvas.height / canvas.offsetHeight;
@@ -89,15 +90,19 @@ export default function Whiteboard({ socket, userId }) {
 
     // Emit drawing event to other user
     if (socket) {
-      socket.emit('whiteboard-draw', {
-        x0: e.nativeEvent.movementX || offsetX,
-        y0: e.nativeEvent.movementY || offsetY,
-        x1: offsetX,
-        y1: offsetY,
-        lineWidth,
-        tool,
-        color,
-      });
+      try {
+        socket.emit('whiteboard-draw', {
+          x0: e.nativeEvent.movementX || offsetX,
+          y0: e.nativeEvent.movementY || offsetY,
+          x1: offsetX,
+          y1: offsetY,
+          lineWidth,
+          tool,
+          color,
+        });
+      } catch (err) {
+        console.error('Error emitting whiteboard draw:', err);
+      }
     }
   };
 
@@ -108,9 +113,14 @@ export default function Whiteboard({ socket, userId }) {
 
   const clearCanvas = () => {
     const canvas = canvasRef.current;
+    if (!canvas || !contextRef.current) return;
     contextRef.current.clearRect(0, 0, canvas.width, canvas.height);
     if (socket) {
-      socket.emit('whiteboard-clear');
+      try {
+        socket.emit('whiteboard-clear');
+      } catch (err) {
+        console.error('Error clearing whiteboard:', err);
+      }
     }
   };
 

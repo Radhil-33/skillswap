@@ -459,9 +459,9 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
 
         <div className={`fixed inset-0 z-50 flex flex-col ${isAudioCall ? 'bg-gradient-to-b from-gray-800 to-gray-900' : 'bg-black'}`}>
           <div className="flex-1 relative">
-            {showWhiteboard && !isAudioCall ? (
+            {showWhiteboard && !isAudioCall && socket && callTarget.current ? (
               /* Whiteboard view */
-              <Whiteboard socket={socket} userId={callTarget.current || targetUserId} />
+              <Whiteboard socket={socket} userId={callTarget.current} />
             ) : isAudioCall ? (
               /* Audio call UI - avatar centered */
               <div className="flex items-center justify-center h-full">
