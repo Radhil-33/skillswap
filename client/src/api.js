@@ -57,3 +57,11 @@ export const uploadAvatar = (file) => {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 };
+
+// Admin
+export const getAllUsers = () => API.get('/admin/users');
+export const getUserById = (id) => API.get(`/admin/users/${id}`);
+export const updateUser = (id, data) => API.put(`/admin/users/${id}`, data);
+export const deleteUser = (id) => API.delete(`/admin/users/${id}`);
+export const makeUserAdmin = (id) => API.put(`/admin/users/${id}/make-admin`);
+export const removeUserAdmin = (id) => API.put(`/admin/users/${id}/remove-admin`);

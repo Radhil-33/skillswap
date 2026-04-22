@@ -13,6 +13,7 @@ import Chat from './pages/Chat';
 import Sessions from './pages/Sessions';
 import Reviews from './pages/Reviews';
 import CallLogs from './pages/CallLogs';
+import Admin from './pages/Admin';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -47,6 +48,7 @@ function AppRoutes() {
         <Route path="/sessions" element={<PrivateRoute><Sessions /></PrivateRoute>} />
         <Route path="/reviews" element={<PrivateRoute><Reviews /></PrivateRoute>} />
         <Route path="/call-logs" element={<PrivateRoute><CallLogs /></PrivateRoute>} />
+        <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/dashboard" />} />
       </Routes>
     </>

@@ -58,6 +58,7 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
   }, []);
 
   const cleanup = useCallback(() => {
+    console.log('CLEANUP called - clearing all refs');
     if (localStream.current) {
       localStream.current.getTracks().forEach((t) => t.stop());
       localStream.current = null;
@@ -133,6 +134,8 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
 
     pc.onconnectionstatechange = () => {
       console.log('Connection state:', pc.connectionState);
+      console.log('ICE connection state:', pc.iceConnectionState);
+      console.log('Signaling state:', pc.signalingState);
       if (pc.connectionState === 'connected') {
         updateCallState('connected');
       }
@@ -154,16 +157,44 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
       callTypeRef.current = mode;
       setCallType(mode);
 
+      // Mobile-friendly constraints
+      const isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      console.log('Device type:', isMobile ? 'MOBILE' : 'DESKTOP');
+      
       const constraints = mode === 'audio'
-        ? { video: false, audio: true }
-        : { video: true, audio: true };
+        ? { video: false, audio: { echoCancellation: true, noiseSuppression: true } }
+        : {
+            video: {
+              width: { ideal: isMobile ? 320 : 1280 },
+              height: { ideal: isMobile ? 240 : 720 },
+              facingMode: 'user'
+            },
+            audio: { echoCancellation: true, noiseSuppression: true }
+          };
       
       let stream;
       try {
         stream = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log('Media stream acquired successfully');
       } catch (mediaErr) {
-        console.error('Media access error:', mediaErr);
-        if (mediaErr.name === 'NotAllowedError') {
+        console.error('Media access error with preferred constraints:', mediaErr);
+        
+        // Fallback to basic constraints if preferred ones fail
+        if (mediaErr.name === 'OverconstrainedError') {
+          console.log('Trying with basic constraints as fallback...');
+          try {
+            const basicConstraints = mode === 'audio'
+              ? { video: false, audio: true }
+              : { video: true, audio: true };
+            stream = await navigator.mediaDevices.getUserMedia(basicConstraints);
+            console.log('Media stream acquired with fallback constraints');
+          } catch (fallbackErr) {
+            console.error('Fallback media access also failed:', fallbackErr);
+            alert('Could not access camera/microphone: ' + fallbackErr.message);
+            cleanup();
+            return;
+          }
+        } else if (mediaErr.name === 'NotAllowedError') {
           alert('Please allow access to ' + (mode === 'audio' ? 'microphone' : 'camera & microphone') + ' to start a call');
         } else if (mediaErr.name === 'NotFoundError') {
           alert('No ' + (mode === 'audio' ? 'microphone' : 'camera') + ' found on your device');
@@ -175,18 +206,29 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
       }
 
       localStream.current = stream;
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      console.log('Local stream acquired in startCall, tracks:', stream.getTracks().map(t => t.kind));
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+        console.log('Local video ref set in startCall');
+      }
 
       const pc = createPeer();
       peerConnection.current = pc;
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+      console.log('Peer connection created and ref set:', !!pc);
+      console.log('Adding local tracks to peer connection in startCall...');
+      stream.getTracks().forEach((track) => {
+        console.log('Adding track in startCall:', track.kind);
+        pc.addTrack(track, stream);
+      });
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
+      console.log('Offer created and local description set, PC ref still valid:', !!peerConnection.current);
 
       // Update state after successfully creating offer
       updateCallState('calling');
       socket.emit('call-user', { targetUserId, offer, callType: mode });
+      console.log('Call-user event emitted with offer');
     } catch (err) {
       console.error('Failed to start call:', err);
       alert('Failed to start call: ' + err.message);
@@ -211,16 +253,45 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
       }
 
       const isAudio = callTypeRef.current === 'audio';
+      
+      // Mobile-friendly constraints
+      const isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      console.log('Accepting call from device type:', isMobile ? 'MOBILE' : 'DESKTOP');
+      
       const constraints = isAudio
-        ? { video: false, audio: true }
-        : { video: true, audio: true };
+        ? { video: false, audio: { echoCancellation: true, noiseSuppression: true } }
+        : {
+            video: {
+              width: { ideal: isMobile ? 320 : 1280 },
+              height: { ideal: isMobile ? 240 : 720 },
+              facingMode: 'user'
+            },
+            audio: { echoCancellation: true, noiseSuppression: true }
+          };
       
       let stream;
       try {
         stream = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log('Media stream acquired for answer successfully');
       } catch (mediaErr) {
-        console.error('Media access error:', mediaErr);
-        if (mediaErr.name === 'NotAllowedError') {
+        console.error('Media access error with preferred constraints:', mediaErr);
+        
+        // Fallback to basic constraints if preferred ones fail
+        if (mediaErr.name === 'OverconstrainedError') {
+          console.log('Trying with basic constraints as fallback...');
+          try {
+            const basicConstraints = isAudio
+              ? { video: false, audio: true }
+              : { video: true, audio: true };
+            stream = await navigator.mediaDevices.getUserMedia(basicConstraints);
+            console.log('Media stream acquired for answer with fallback constraints');
+          } catch (fallbackErr) {
+            console.error('Fallback media access also failed:', fallbackErr);
+            alert('Could not access camera/microphone: ' + fallbackErr.message);
+            rejectCall();
+            return;
+          }
+        } else if (mediaErr.name === 'NotAllowedError') {
           alert('Please allow access to ' + (isAudio ? 'microphone' : 'camera & microphone') + ' to accept the call');
         } else if (mediaErr.name === 'NotFoundError') {
           alert('No ' + (isAudio ? 'microphone' : 'camera') + ' found on your device');
@@ -232,11 +303,22 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
       }
 
       localStream.current = stream;
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      console.log('Local stream acquired in acceptCall, tracks:', stream.getTracks().map(t => t.kind));
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+        console.log('Local video ref set in acceptCall');
+      }
+
+      // Update state to 'calling' BEFORE creating peer connection so video element is rendered
+      updateCallState('calling');
 
       const pc = createPeer();
       peerConnection.current = pc;
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+      console.log('Adding local tracks to peer connection in acceptCall...');
+      stream.getTracks().forEach((track) => {
+        console.log('Adding track in acceptCall:', track.kind);
+        pc.addTrack(track, stream);
+      });
 
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
 
@@ -253,7 +335,6 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
-      updateCallState('connected');
       socket.emit('call-accepted', { callerId: callTarget.current, answer });
     } catch (err) {
       console.error('Failed to accept call:', err);
@@ -392,9 +473,17 @@ export default function VideoCall({ targetUserId, targetUserName, mode = 'video'
         console.log('Call accepted - Setting remote description');
         const pc = peerConnection.current;
         if (!pc) {
-          console.error('ERROR: Peer connection not available');
+          console.error('ERROR: Peer connection not available when setting answer');
+          console.log('Peer connection ref was cleared. This might be a duplicate answer or timing issue.');
           return;
         }
+        
+        // Check if we already have a remote description (avoid duplicate answers)
+        if (pc.remoteDescription) {
+          console.warn('Remote description already set, ignoring duplicate answer');
+          return;
+        }
+        
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
         console.log('Remote description set successfully');
         for (const candidate of pendingCandidates.current) {

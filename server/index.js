@@ -54,6 +54,7 @@ app.use(express.static(clientBuildPath));
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/admin', require('./routes/admin'));
 app.use('/api/swaps', require('./routes/swaps'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/sessions', require('./routes/sessions'));

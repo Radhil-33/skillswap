@@ -44,6 +44,11 @@ const userSchema = new mongoose.Schema({
     average: { type: Number, default: 0 },
     count: { type: Number, default: 0 },
   },
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user',
+  },
 }, { timestamps: true });
 
 userSchema.pre('save', async function () {
