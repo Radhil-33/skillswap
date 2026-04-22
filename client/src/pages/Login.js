@@ -19,7 +19,13 @@ export default function Login() {
       const { data } = await login(form);
       loginUser(data.token, data.user);
       toast.success('Welcome back!');
-      navigate('/dashboard');
+      
+      // Redirect to admin dashboard if user is admin
+      if (data.user.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Login failed');
     } finally {
