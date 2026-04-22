@@ -5,6 +5,7 @@ import { SocketProvider } from './context/SocketContext';
 import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import AdminLogin from './pages/AdminLogin';
+import AdminSignup from './pages/AdminSignup';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
@@ -41,6 +42,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/admin-login" element={<PublicRoute><AdminLogin /></PublicRoute>} />
+        <Route path="/admin-signup" element={<PublicRoute><AdminSignup /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
         <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
         <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
