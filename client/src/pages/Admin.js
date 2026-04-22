@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Shield, Edit2, Trash2, Check, X } from 'lucide-react';
+import { Shield, Edit2, Trash2, Check, X, Plus, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
-import axios from 'axios';
+import { createUser, getAllUsers, updateUser, deleteUser, makeUserAdmin, removeUserAdmin } from '../api';
 
 export default function Admin() {
   const { user } = useAuth();
@@ -10,22 +10,15 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
-
-  const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
-  const api = axios.create({ baseURL: API_BASE_URL });
-
-  api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  });
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', role: 'user' });
+  const [showPassword, setShowPassword] = useState(false);
+  const [creatingUser, setCreatingUser] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
-      const { data } = await api.get('/admin/users');
+      const { data } = await getAllUsers();
       setUsers(data);
     } catch (err) {
       toast.error('Failed to fetch users');
@@ -33,7 +26,7 @@ export default function Admin() {
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, []);
 
   useEffect(() => {
     fetchUsers();
@@ -52,7 +45,7 @@ export default function Admin() {
 
   const handleSaveEdit = async () => {
     try {
-      await api.put(`/admin/users/${editingId}`, editForm);
+      await updateUser(editingId, editForm);
       toast.success('User updated successfully');
       setEditingId(null);
       fetchUsers();
@@ -62,9 +55,31 @@ export default function Admin() {
     }
   };
 
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    if (!createForm.name || !createForm.email || !createForm.password) {
+      toast.error('Please fill all fields');
+      return;
+    }
+
+    setCreatingUser(true);
+    try {
+      await createUser(createForm);
+      toast.success('User created successfully');
+      setCreateForm({ name: '', email: '', password: '', role: 'user' });
+      setShowCreateModal(false);
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to create user');
+      console.error(err);
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
   const handlePromoteAdmin = async (userId) => {
     try {
-      await api.put(`/admin/users/${userId}/make-admin`);
+      await makeUserAdmin(userId);
       toast.success('User promoted to admin');
       fetchUsers();
     } catch (err) {
@@ -74,7 +89,7 @@ export default function Admin() {
 
   const handleDemoteAdmin = async (userId) => {
     try {
-      await api.put(`/admin/users/${userId}/remove-admin`);
+      await removeUserAdmin(userId);
       toast.success('Admin status removed');
       fetchUsers();
     } catch (err) {
@@ -86,7 +101,7 @@ export default function Admin() {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
 
     try {
-      await api.delete(`/admin/users/${userId}`);
+      await deleteUser(userId);
       toast.success('User deleted successfully');
       fetchUsers();
     } catch (err) {
@@ -109,13 +124,112 @@ export default function Admin() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <Shield className="h-8 w-8 text-indigo-600" />
-            <h1 className="text-4xl font-bold text-gray-900">Admin Dashboard</h1>
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <Shield className="h-8 w-8 text-indigo-600" />
+              <h1 className="text-4xl font-bold text-gray-900">Admin Dashboard</h1>
+            </div>
+            <p className="text-gray-600">Manage users and their roles</p>
           </div>
-          <p className="text-gray-600">Manage users and their roles</p>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition"
+          >
+            <Plus className="h-5 w-5" />
+            Create User
+          </button>
         </div>
+
+        {/* Create User Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Create New User</h2>
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateUser} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={createForm.name}
+                    onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    placeholder="Full name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={createForm.email}
+                    onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    placeholder="user@example.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={createForm.password}
+                      onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                      placeholder="Password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    >
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                  <select
+                    value={createForm.role}
+                    onChange={(e) => setCreateForm({ ...createForm, role: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  >
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creatingUser}
+                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50"
+                  >
+                    {creatingUser ? 'Creating...' : 'Create'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="text-center py-12">

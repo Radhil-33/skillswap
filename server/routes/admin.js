@@ -77,6 +77,40 @@ router.delete('/users/:id', auth, isAdmin, async (req, res) => {
   }
 });
 
+// Create new user (Admin only)
+router.post('/users/create', auth, isAdmin, async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body;
+
+    // Validate inputs
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'Name, email, and password are required' });
+    }
+
+    // Check if email already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email already in use' });
+    }
+
+    // Create new user
+    const newUser = new User({
+      name,
+      email,
+      password,
+      role: role === 'admin' ? 'admin' : 'user',
+    });
+
+    await newUser.save();
+
+    // Return user without password
+    const userResponse = await User.findById(newUser._id).select('-password');
+    res.status(201).json({ message: 'User created successfully', user: userResponse });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // Make user admin
 router.put('/users/:id/make-admin', auth, isAdmin, async (req, res) => {
   try {

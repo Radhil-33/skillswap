@@ -61,6 +61,7 @@ export const uploadAvatar = (file) => {
 // Admin
 export const getAllUsers = () => API.get('/admin/users');
 export const getUserById = (id) => API.get(`/admin/users/${id}`);
+export const createUser = (data) => API.post('/admin/users/create', data);
 export const updateUser = (id, data) => API.put(`/admin/users/${id}`, data);
 export const deleteUser = (id) => API.delete(`/admin/users/${id}`);
 export const makeUserAdmin = (id) => API.put(`/admin/users/${id}/make-admin`);
