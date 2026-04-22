@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Shield, Edit2, Trash2, Check, X } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -22,11 +22,7 @@ export default function Admin() {
     return config;
   });
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       const { data } = await api.get('/admin/users');
@@ -37,7 +33,11 @@ export default function Admin() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [api]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleEdit = (userData) => {
     setEditingId(userData._id);

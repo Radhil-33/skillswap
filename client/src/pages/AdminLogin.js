@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { login } from '../api';
 import toast from 'react-hot-toast';
-import { ArrowLeftRight, Eye, EyeOff, Shield } from 'lucide-react';
+import { Eye, EyeOff, Shield } from 'lucide-react';
 
 export default function AdminLogin() {
   const [form, setForm] = useState({ email: '', password: '' });
