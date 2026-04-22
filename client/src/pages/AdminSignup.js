@@ -20,7 +20,7 @@ export default function AdminSignup() {
 
     setLoading(true);
     try {
-      const response = await adminRegister(form);
+      await adminRegister(form);
       toast.success('Admin account created successfully!');
       setForm({ name: '', email: '', password: '', adminCode: '' });
       navigate('/admin-login');
