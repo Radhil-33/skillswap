@@ -9,11 +9,46 @@ export default function Register() {
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState({});
   const { loginUser } = useAuth();
   const navigate = useNavigate();
 
+  // Email validation regex
+  const isValidEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!form.name.trim()) {
+      newErrors.name = 'Name is required';
+    }
+
+    if (!form.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!isValidEmail(form.email)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+
+    if (!form.password) {
+      newErrors.password = 'Password is required';
+    } else if (form.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     setLoading(true);
     try {
       const { data } = await register(form);
@@ -45,34 +80,47 @@ export default function Register() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
               <input
                 type="text"
-                required
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+                onChange={(e) => {
+                  setForm({ ...form, name: e.target.value });
+                  if (errors.name) setErrors({ ...errors, name: '' });
+                }}
+                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition ${
+                  errors.name ? 'border-red-500' : 'border-gray-300'
+                }`}
                 placeholder="Your full name"
               />
+              {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
               <input
                 type="email"
-                required
                 value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+                onChange={(e) => {
+                  setForm({ ...form, email: e.target.value });
+                  if (errors.email) setErrors({ ...errors, email: '' });
+                }}
+                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition ${
+                  errors.email ? 'border-red-500' : 'border-gray-300'
+                }`}
                 placeholder="you@example.com"
               />
+              {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
-                  required
-                  minLength={6}
                   value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+                  onChange={(e) => {
+                    setForm({ ...form, password: e.target.value });
+                    if (errors.password) setErrors({ ...errors, password: '' });
+                  }}
+                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition ${
+                    errors.password ? 'border-red-500' : 'border-gray-300'
+                  }`}
                   placeholder="At least 6 characters"
                 />
                 <button
@@ -83,6 +131,7 @@ export default function Register() {
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
+              {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
             </div>
             <button
               type="submit"
