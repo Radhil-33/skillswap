@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const { sendWelcomeEmail, sendLoginNotificationEmail, sendAdminWelcomeEmail } = require('../services/emailService');
 
 const router = express.Router();
 
@@ -33,6 +34,11 @@ router.post('/register', [
 
     const user = new User({ name, email: emailLower, password });
     await user.save();
+
+    // Send welcome email asynchronously (don't wait for it)
+    sendWelcomeEmail(emailLower, name).catch(err => 
+      console.error('Failed to send welcome email:', err)
+    );
 
     const token = generateToken(user._id);
     res.status(201).json({ token, user });
@@ -66,6 +72,11 @@ router.post('/login', [
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
+
+    // Send login notification email asynchronously
+    sendLoginNotificationEmail(emailLower, user.name, new Date()).catch(err => 
+      console.error('Failed to send login notification:', err)
+    );
 
     const token = generateToken(user._id);
     res.json({ token, user });
@@ -111,6 +122,11 @@ router.post('/admin-register', [
     // Create new admin user
     const user = new User({ name, email: emailLower, password, role: 'admin' });
     await user.save();
+
+    // Send admin welcome email asynchronously
+    sendAdminWelcomeEmail(emailLower, name).catch(err => 
+      console.error('Failed to send admin welcome email:', err)
+    );
 
     const token = generateToken(user._id);
     res.status(201).json({ message: 'Admin account created successfully', token, user });
